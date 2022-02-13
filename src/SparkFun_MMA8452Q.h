@@ -84,6 +84,7 @@ enum MMA8452Q_Scale
 	SCALE_4G = 4,
 	SCALE_8G = 8
 }; // Possible full-scale settings
+
 enum MMA8452Q_ODR
 {
 	ODR_800,
@@ -95,6 +96,52 @@ enum MMA8452Q_ODR
 	ODR_6,
 	ODR_1
 }; // possible data rates
+
+// Port from https://github.com/akupila/Arduino-MMA8452
+enum MMA8452Q_InterruptTypes {
+	INT_AUTOSLEEP = 0x80,
+	INT_TRANSIENT = 0x20,
+	INT_LANDSCAPEPORTRAIT = 0x10,
+	INT_PULSE_TAP = 0x08,
+	INT_FREEFALL_MOTION = 0x04,
+	INT_DATA_READY = 0x01
+}; // Possible Interrupt Types for CTRL_REG4 and CTRL_REG5
+
+enum MMA8452Q_FreefallMotionReg {
+	FF_MT_CFG_ELE = 0x80,
+	FF_MT_CFG_OAE = 0x40,
+	FF_MT_CFG_ZEFE = 0x20,
+	FF_MT_CFG_YEFE = 0x10,
+	FF_MT_CFG_XEFE = 0x08,
+	FF_MT_CFG_ALL_AXIS = 0x38,
+}; // Freefall/Motion configuration register FF_MT_CFG values
+
+enum MMA_FreefallSourceRegister {
+	FF_MT_SRC_EA = 0x80,
+	FF_MT_SRC_ZHE = 0x20,
+	FF_MT_SRC_ZHP = 0x10,
+	FF_MT_SRC_YHE = 0x08,
+	FF_MT_SRC_YHP = 0x04,
+	FF_MT_SRC_XHE = 0x02,
+	FF_MT_SRC_XHP = 0x01
+}; // Frefall source register bits (page 27 datasheet)
+
+// sleep sampling mode
+enum MMA_SleepFrequency {
+	MMA_SLEEP_50hz = 0,
+	MMA_SLEEP_12_5hz,
+	MMA_SLEEP_6_25hz,
+	MMA_SLEEP_1_56hz
+};
+
+// power mode
+enum MMA_PowerMode {
+	MMA_NORMAL = 0,
+	MMA_LOW_NOISE_LOW_POWER,
+	MMA_HIGH_RESOLUTION,
+	MMA_LOW_POWER
+};
+
 // Possible portrait/landscape settings
 #define PORTRAIT_U 0
 #define PORTRAIT_D 1
@@ -145,6 +192,16 @@ class MMA8452Q
 
 	void setScale(MMA8452Q_Scale fsr);
 	void setDataRate(MMA8452Q_ODR odr);
+
+	// SF port from https://github.com/akupila/Arduino-MMA8452/ the following functions:
+	void setInterruptsEnabled(uint8_t interruptMask);
+	void configureInterrupts(bool activeHigh, bool openDrain);
+	// true: pin1, false: pin2
+	void setInterruptPins(bool autoSleepWake, bool transient, bool landscapePortraitChange, bool tap, bool freefall_motion, bool dataReady);
+	void setupMotionDetection(uint8_t motionThreshold, uint8_t debounceCount);
+	uint8_t readMotionSourceRegister();
+	void setAutoSleep(bool enabled, uint8_t time, MMA_SleepFrequency sleepFrequencySampling, MMA_PowerMode sleepPowerMode);
+	void setWakeOnInterrupt(bool transient, bool landscapePortraitChange, bool tap, bool freefall_motion);
 
   private:
 	TwoWire *_i2cPort = NULL; //The generic connection to user's chosen I2C hardware

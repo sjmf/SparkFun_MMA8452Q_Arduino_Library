@@ -447,3 +447,137 @@ void MMA8452Q::readRegisters(MMA8452Q_Register reg, byte *buffer, byte len)
 			buffer[x] = _i2cPort->read();
 	}
 }
+
+// Port from https://github.com/akupila/Arduino-MMA8452 the following functions:
+// Set interrupts enabled:
+// CTRL_REG4 takes the interruptMask. Set this from MMA8452Q_InterruptTypes
+void MMA8452Q::setInterruptsEnabled(uint8_t interruptMask)
+{
+  // Must be in standby mode to make changes!!!
+  // Change to standby if currently in active state
+  if (isActive())
+    standby();
+
+  // clear bits that shouldn't be set, in case they were (Bits 1 and 6 are reserved)
+  interruptMask &= ~(1 << 6);
+  interruptMask &= ~(1 << 1);
+  writeRegister(CTRL_REG4, interruptMask);
+
+  active();
+}
+
+// Which interrupts can wake up system:
+// Bit 1: IPOL:  Interrupt polaritive Active High or Active Low. Default 0. Set 1 to Active High
+// Bit 0: PP_OD: Push-pull / open Drain selection on Interrupt Pad
+void MMA8452Q::configureInterrupts(bool activeHigh, bool openDrain)
+{
+  // Must be in standby mode to make changes!!!
+  if (isActive())
+    standby();
+
+  uint8_t ctrl_reg3 = readRegister(CTRL_REG3);
+  ctrl_reg3 &= ~0x3;
+  ctrl_reg3 |= (activeHigh << 1) | openDrain;
+  writeRegister(CTRL_REG3, ctrl_reg3);
+
+  // Return to active state when done
+  // Must be in active state to read data
+  active();
+}
+
+
+// Which pin to route interrupts to (INT1/INT2) is controlled by CTRL_REG5. P41 datasheet
+// By default, 0 (i.e. false) mapped to pin INT2
+void MMA8452Q::setInterruptPins(bool autoSleepWake, bool transient, bool landscapePortraitChange, bool tap, bool freefall_motion, bool dataReady)
+{
+  // Change to standby if currently in active state
+  if (isActive())
+    standby();
+
+  uint8_t ctrl_reg5 = (autoSleepWake << 7)
+                    | (transient << 5)
+                    | (landscapePortraitChange << 4)
+                    | (tap << 3)
+                    | (freefall_motion << 2)
+                    | (dataReady << 0);
+  writeRegister(CTRL_REG5, ctrl_reg5);
+
+  // Return to active state when done
+  // Must be in active state to read data
+  active();
+}
+
+// This function adapted from https://arduino.stackexchange.com/questions/1475/setting-up-the-mma8452-to-trigger-interrupt
+// Set up the Freefall/Motion configuration register FF_MT_CFG
+void MMA8452Q::setupMotionDetection(uint8_t motionThreshold, uint8_t debounceCount)
+{
+  // Must be in standby mode to make changes!!!
+  // Change to standby if currently in active state
+  if (isActive())
+    standby();
+
+  // Detect on all axes, latch result into FF_MT_SRC register
+  writeRegister(FF_MT_CFG, FF_MT_CFG_ALL_AXIS | FF_MT_CFG_ELE | FF_MT_CFG_OAE);
+  // Write motion threshold (0-127) into FF_MT_THS register
+  writeRegister(FF_MT_THS, motionThreshold);
+  // Write debounceCount into FF_MT_COUNT register
+  writeRegister(FF_MT_COUNT, debounceCount);
+
+  // Return to active state when done
+  // Must be in active state to read data
+  active();
+}
+
+// Reading this register clears the Event Active flag and allows another interrupt for freefall motion
+uint8_t MMA8452Q::readMotionSourceRegister() {
+  return readRegister(FF_MT_SRC);
+}
+
+// Control power modes
+void MMA8452Q::setAutoSleep(bool enabled, uint8_t time, MMA_SleepFrequency sleepFrequencySampling, MMA_PowerMode sleepPowerMode)
+{
+  // Change to standby if currently in active state
+  if (isActive())
+    standby();
+
+  uint8_t ctrl_reg2 = readRegister(CTRL_REG2);
+  ctrl_reg2 &= ~(0x3 << 3);           // Clear
+  ctrl_reg2 |= (sleepPowerMode << 3); // Set
+  ctrl_reg2 &= ~(0x1 << 2);
+  ctrl_reg2 |= (enabled << 2);
+  writeRegister(CTRL_REG2, ctrl_reg2);
+
+  if (enabled)
+  {
+    uint8_t ctrl_reg1 = readRegister(CTRL_REG1);
+    ctrl_reg1 &= ~(0x3 << 6);
+    ctrl_reg1 |= (sleepFrequencySampling << 6);
+    writeRegister(CTRL_REG1, ctrl_reg1);
+    writeRegister(ASLP_COUNT, time);
+  }
+
+  // Return to active state when done
+  active();
+}
+
+// Wake accelerometer on these interrupts
+void MMA8452Q::setWakeOnInterrupt(bool transient, bool landscapePortraitChange, bool tap, bool freefall_motion)
+{
+  // Change to standby if currently in active state
+  if (isActive())
+    standby();
+
+  uint8_t ctrl_reg3 = readRegister(CTRL_REG3);
+  bool iPol = ctrl_reg3 & 0x02;
+  bool pp_od = ctrl_reg3 & 0x01;
+  ctrl_reg3 = (transient << 6)
+            | (landscapePortraitChange << 5)
+            | (tap << 4)
+            | (freefall_motion << 3)
+            | (iPol << 1)
+            | (pp_od << 0);
+  writeRegister(CTRL_REG3, ctrl_reg3);
+
+  // Return to active state when done
+  active();
+}
