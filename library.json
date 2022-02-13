@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/sparkfun/SparkFun_MMA8452Q_Arduino_Library.git"
   },
-  "version": "1.4.0",
+  "version": "1.5.0",
   "frameworks": "arduino",
   "platforms": "*"
 }
